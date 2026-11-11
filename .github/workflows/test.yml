@@ -1,3 +1,12 @@
+# 修复说明：
+#   1. build job 增加 permissions: contents: write —— 解决 ncipollo/release-action 的
+#      "Error 403: Resource not accessible by integration"（创建 Release / 上传 assets 属 contents 写权限），
+#      同时修复同 job 内 "Push to master" 的 git push 403。
+#   2. clean job 增加 permissions: actions: write —— Mattraks/delete-workflow-runs 删旧 run 需要该权限。
+#   3. token 使用 secrets.RELEASE_TOKEN || github.token：默认仍走内置 token；若组织策略禁止
+#      workflow 获得写权限，只需新增 RELEASE_TOKEN secret（fine-grained PAT，Contents: Read and write）即可，无需改代码。
+#   4. Modify pyramid——build.gradle 步骤把 install "pyquery" 钉成 pyquery==2.0.2 并显式加 cssselect==1.2.0，
+#      避免 takagen99/Box 分支拉取 pyquery 2.1.0（其要求 cssselect>=1.5.0，Chaquopy 源在 py3.8 下只有 1.2.0）。
 name: Test
 
 on:
@@ -13,14 +22,13 @@ on:
         description: '构建后不提交发布新版'
         required: false
         type: boolean
-# 发布 Release 需要 contents:write；clean 清理 runs 需要 actions:write
-permissions:
-  contents: write
-  actions: write
+
 jobs:
   build:
     needs: telegram-bot-api
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -105,6 +113,9 @@ jobs:
           # 替换Windows路径为系统Python路径
           # sed -i "s|buildPython(\"D:/Programs/Python/Python38/python.exe\")|buildPython(\"/usr/bin/python3\")|g" pyramid/build.gradle
           sed -i '/buildPython.*python.exe/d' pyramid/build.gradle
+          echo '钉住 pyquery / cssselect：pyquery 2.1.0 要求 cssselect>=1.5.0，而 Chaquopy 源在 py3.8 下最高只有 1.2.0，会导致 generateXxxReleasePythonRequirements 失败'
+          sed -i 's#install "pyquery"#install "pyquery==2.0.2"\n                install "cssselect==1.2.0"#' pyramid/build.gradle
+          grep -n 'pyquery\|cssselect' pyramid/build.gradle || true
 
       - name: Setup Python local.properties
         #if: ${{ matrix.userName == 'q215613905' && env.commit }}
@@ -116,8 +127,8 @@ jobs:
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
-          signingConfigs='ICAgIHNpZ25pbmdDb25maWdzIHtcCiAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICBteUNvbmZpZyB7XAogICAgICAgICAgICAgICAgc3RvcmVGaWxlIGZpbGUoUkVMRUFTRV9TVE9SRV9GSUxFKVwKICAgICAgICAgICAgICAgIHN0b3JlUGFzc3dvcmQgUkVMRUFTRV9TVE9SRV9QQVNTV09SRFwKICAgICAgICAgICAgICAgIGtleUFsaWFzIFJFTEVBU0VfS0VZX0FMSUFTXAogICAgICAgICAgICAgICAga2V5UGFzc3dvcmQgUkVMRUFTRV9LRVlfUEFTU1dPUkRcCiAgICAgICAgICAgICAgICB2MVNpZ25pbmdFbmFibGVkIHRydWVcCiAgICAgICAgICAgICAgICB2MlNpZ25pbmdFbmFibGVkIHRydWVcCiAgICAgICAgICAgICAgICBlbmFibGVWM1NpZ25pbmcgPSB0cnVlXAogICAgICAgICAgICAgICAgZW5hYmxlVjRTaWduaW5nID0gdHJ1ZVwKICAgICAgICAgICAgfVwKICAgICAgICB9XAogICAgfVwKXA=='
-          signingConfig='ICAgICAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICAgICAgc2lnbmluZ0NvbmZpZyBzaWduaW5nQ29uZmlncy5teUNvbmZpZ1wKICAgICAgICAgICAgfVwK'
+          signingConfigs='ICAgIHNpZ25pbmdDb25maWdzIHtcCiAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICBteUNvbmZpZyB7XAogICAgICAgICAgICAgICAgc3RvcmVGaWxlIGZpbGUoUkVMRUFTRV9TVE9SRV9GSUxFKVwKICAgICAgICAgICAgICAgIHN0b3JlUGFzc3dvcmQgUkVMRUFTRV9TVE9SRV9QQVNTV09SRFwKICAgICAgICAgICAgICAgIGtleUFsaWFzIFJFTEVBU0VfS0VZX0FMSUFTXAogICAgICAgICAgICAgICAga2V5UGFzc3dvcmQgUkVMRUFTRV9LRVlfUEFTU1dPUkRcCiAgICAgICAgICAgICAgICB2MVNpZ25pbmdFbmFibGVkIHRydWVcCiAgICAgICAgICAgICAgICB2MlNpZ25pbmdFbmFibGVkIHRydWVcCiAgICAgICAgICAgICAgICBlbmFibGVWM1NpZ25pbmcgPSB0cnVlXAogICAgICAgICAgICAgICAgZW5hYmxlVjRTaWduaW5nID0gdHJ1ZVwKICAgICAgICAgICAgfVwKICAgICAgICB9XAogICAgfQ=='
+          signingConfig='ICAgICAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICAgICAgc2lnbmluZ0NvbmZpZyBzaWduaW5nQ29uZmlncy5teUNvbmZpZ1wKICAgICAgICAgICAgfQ=='
           signingConfigs="$(echo "$signingConfigs" |base64 -d )"
           signingConfig="$(echo "$signingConfig" |base64 -d )"
           sed -i -e "/defaultConfig {/i\\$signingConfigs " -e "/debug {/a\\$signingConfig " -e "/release {/a\\$signingConfig " app/build.gradle
@@ -186,6 +197,7 @@ jobs:
         uses: ncipollo/release-action@v1
         if: ${{ env.commit }}
         with:
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
           name: ${{ env.tag }}
           tag: ${{ env.tag }}
           bodyFile: TVBoxOSC/apk/${{ matrix.userName }}-Release.log
@@ -223,7 +235,7 @@ jobs:
           sed -i '/url =/d' ./.git/config
           git config --local user.name "github-actions[bot]"
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+          git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.RELEASE_TOKEN || github.token }}@github.com/${{ github.repository }}"
           git pull --rebase
           sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#Updated: [a-zA-Z0-9]*#Updated: ${{ env.commit }}#" README.md
           git add --all
@@ -273,6 +285,8 @@ jobs:
   clean:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Delete older workflow runs and artifacts
         uses: Mattraks/delete-workflow-runs@main
