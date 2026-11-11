@@ -33,9 +33,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - userName: q215613905
-            repoName: TVBoxOS
-            branchName: main
+  #        - userName: q215613905
+  #          repoName: TVBoxOS
+   #         branchName: main
           - userName: takagen99
             repoName: Box
             branchName: main
@@ -237,10 +237,15 @@ jobs:
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.RELEASE_TOKEN || github.token }}@github.com/${{ github.repository }}"
           git pull --rebase
-          sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#Updated: [a-zA-Z0-9]*#Updated: ${{ env.commit }}#" README.md
-          git add --all
-          git commit -m "${{ env.commit }}"
-          git push -u -f origin master
+sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#Updated: [a-zA-Z0-9]*#Updated: ${{ env.commit }}#" README.md
+    if git diff --quiet -- README.md; then
+      echo "README.md 中 ${{ matrix.userName }}/${{ matrix.repoName }} 的 Updated 已经是 ${{ env.commit }}，无需提交（rebuild 重跑同一 commit 时会走到这里）"
+      exit 0
+    fi
+    git add --all
+    git commit -m "${{ env.commit }}"
+    git pull --rebase
+    git push -u -f origin master
 
   telegram-bot-api:
     name: Telegram Bot API
