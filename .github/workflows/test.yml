@@ -13,7 +13,10 @@ on:
         description: '构建后不提交发布新版'
         required: false
         type: boolean
-
+# 发布 Release 需要 contents:write；clean 清理 runs 需要 actions:write
+permissions:
+  contents: write
+  actions: write
 jobs:
   build:
     needs: telegram-bot-api
